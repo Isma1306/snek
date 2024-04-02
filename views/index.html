@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+  <script src="https://unpkg.com/htmx.org@1.9.11"></script>
+  <script src="https://unpkg.com/htmx.org@1.9.11/dist/ext/ws.js"></script>
+  <style>
+    .board {
+      display: flex;
+      flex-direction: row;
+      gap: 1px;
+    }
+
+    .row {
+      display: flex;
+      justify-content: space-around;
+      flex-direction: column-reverse;
+      width: fit-content;
+      gap: 1px
+    }
+
+    .square {
+      width: 30px;
+      height: 30px;
+      border: black solid 1px;
+    }
+
+    .snek {
+      background-color: black;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="board"></div>
+  <div hx-ext="ws" ws-connect="/game">
+    <form style="visibility: hidden;" id="form" ws-send>
+      <input id="direction" name="direction" value="up">
+    </form>
+  </div>
+</body>
+
+</html>
+
+<script>
+  const input = document.getElementById("direction");
+  const form = document.getElementById("form");
+
+  document.body.addEventListener("keyup", (event) => {
+    switch (event.key) {
+      case "w":
+        input.value = "up";
+        break;
+      case "s":
+        input.value = "down";
+        break;
+      case "a":
+        input.value = "left";
+        break;
+
+      case "d":
+        input.value = "right";
+        break;
+
+      default:
+        break;
+    }
+    form.requestSubmit();
+  });
+</script>
