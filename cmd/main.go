@@ -163,11 +163,18 @@ func main() {
 		game.generateApple()
 		direction := "right"
 
+		// timer
+		go func() {
+			for {
+				time.Sleep(1 * time.Second)
+				game.Time++
+			}
+		}()
+
 		// game loop
 		go func() {
 			for {
-				time.Sleep(1000 * time.Millisecond)
-				game.Time++
+				time.Sleep(300 * time.Millisecond)
 				eatApple := game.isEatingApple(snek, game.Apple)
 				snek.move(direction, *game, eatApple)
 				game.generateBoard(snek)
