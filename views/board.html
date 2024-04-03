@@ -1,25 +1,23 @@
 {{block "board" . }}
 <div hx-swap-oob="innerHTML:#board">
-  <h1>Time: {{.Time}}</h1>
-  <h2>Score: {{.Score}}</h2>
-  <div class="board">
-    {{range .Board}}
-    {{template "row" . }}
-    {{end}}
-  </div>
+  <h1>Score: {{.Score}}</h1>
+  <h2>Time: {{.Time}}</h2>
+  <div class="board">{{range .Board}}{{template "row" . }}{{end}}</div>
 </div>
 {{ end }}
 
 
 {{block "row" . }}
-<div class="row">
-  {{range .}}
-  {{template "square" .}}
-  {{end}}
-</div>
+<div class="row">{{range .}}{{template "square" .}}{{end}}</div>
 {{ end}}
 
 {{block "square" . }}
-<div {{ if .Fill }} class="snek square" {{end}} class="square">
+<div {{ if .Fill }} class="snek square" {{end}} class="square"></div>
+{{ end}}
+
+{{block "text" . }}
+<div hx-swap-oob="innerHTML:#body">
+  <h1>{{.}}</h1>
+  <button>start again</button>
 </div>
 {{ end}}

@@ -15,8 +15,9 @@ import (
 )
 
 var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
+	ReadBufferSize:    1024,
+	WriteBufferSize:   1024,
+	EnableCompression: true,
 }
 
 type Board [10][10]Square
@@ -114,6 +115,14 @@ func (g *Game) generateApple() {
 		g.Apple = newPostion
 	}
 }
+func (g *Game) checkCollision(snek Snek) bool {
+	for i := 1; i < len(snek.Body); i++ {
+		if snek.Body[i].Position[0] == snek.Body[0].Position[0] && snek.Body[i].Position[1] == snek.Body[0].Position[1] {
+			return true
+		}
+	}
+	return false
+}
 
 func newUnit(position [2]int) Unit {
 	newUnit := new(Unit)
@@ -131,6 +140,13 @@ func renderBoard(game Game) bytes.Buffer {
 	tmpl := template.Must(template.ParseGlob("views/*.html"))
 	buffer := bytes.Buffer{}
 	tmpl.ExecuteTemplate(&buffer, "board", game)
+	return buffer
+}
+
+func renderText(text string) bytes.Buffer {
+	tmpl := template.Must(template.ParseGlob("views/*.html"))
+	buffer := bytes.Buffer{}
+	tmpl.ExecuteTemplate(&buffer, "text", text)
 	return buffer
 }
 
@@ -152,10 +168,12 @@ func main() {
 		if err != nil {
 			log.Printf("Error upgrading: %s", err)
 		}
+		conn.EnableWriteCompression(true)
+		conn.SetCompressionLevel(9)
 		defer conn.Close()
 		conn.SetCloseHandler(func(code int, text string) error {
 			log.Printf("connection lost with client: %s", conn.RemoteAddr())
-			return fmt.Errorf("connection close")
+			return fmt.Errorf("connection close!")
 		})
 		game := new(Game)
 		snek := newSnek()
@@ -177,6 +195,14 @@ func main() {
 				time.Sleep(300 * time.Millisecond)
 				eatApple := game.isEatingApple(snek, game.Apple)
 				snek.move(direction, *game, eatApple)
+				if game.checkCollision(snek) {
+					msg := renderText("You died!")
+					if err = conn.WriteMessage(websocket.TextMessage, msg.Bytes()); err != nil {
+						return
+					}
+					conn.Close()
+					return
+				}
 				game.generateBoard(snek)
 				if eatApple {
 					game.Score += 100

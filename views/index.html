@@ -12,6 +12,8 @@
       display: flex;
       flex-direction: row;
       gap: 1px;
+      width: fit-content;
+      border: 5px solid #3f3f3f;
     }
 
     .row {
@@ -25,16 +27,15 @@
     .square {
       width: 30px;
       height: 30px;
-      border: black solid 1px;
     }
 
     .snek {
-      background-color: black;
+      background-color: #3f3f3f;
     }
   </style>
 </head>
 
-<body>
+<body id="body">
   <div id="board"></div>
   <div hx-ext="ws" ws-connect="/game">
     <form style="visibility: hidden;" id="form" ws-send>
