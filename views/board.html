@@ -27,3 +27,22 @@
 {{block "time" . }}
 <span hx-swap-oob="innerHTML:#time">{{.}}</span>
 {{ end}}
+
+
+{{block "unit" . }}
+<div class="snek square" id="block{{range .}}{{.}}{{end}}" hx-swap-oob="outerHTML:#block{{range .}}{{.}}{{end}}"></div>
+{{ end}}
+
+{{block "snek" . }}
+{{range .}}{{template "unit" .Position }}{{end}}
+{{ end}}
+
+
+{{block "empty" . }}
+<div class="square" id="block{{range .Position}}{{.}}{{end}}"
+  hx-swap-oob="outerHTML:#block{{range .Position}}{{.}}{{end}}"></div>
+{{ end}}
+
+{{block "apple" . }}
+<div class="square snek" id="block{{range .}}{{.}}{{end}}" hx-swap-oob="outerHTML:#block{{range .}}{{.}}{{end}}"></div>
+{{ end}}

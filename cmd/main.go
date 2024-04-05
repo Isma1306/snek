@@ -166,12 +166,16 @@ func main() {
 		defer conn.Close()
 		conn.SetCloseHandler(func(code int, text string) error {
 			log.Printf("connection lost with client: %s", conn.RemoteAddr())
-			return fmt.Errorf("connection close!")
+			return fmt.Errorf("connection close")
 		})
 		game := new(Game)
 		snek := newSnek()
 		game.generateBoard(snek)
 		game.generateApple()
+		appleTemplate := render("apple", game.Apple)
+		if err = conn.WriteMessage(websocket.TextMessage, appleTemplate.Bytes()); err != nil {
+			return
+		}
 		direction := "right"
 
 		// timer
@@ -191,6 +195,7 @@ func main() {
 			for {
 				time.Sleep(300 * time.Millisecond)
 				eatApple := game.isEatingApple(snek, game.Apple)
+				tail := snek.Body[len(snek.Body)-1]
 				snek.move(direction, *game, eatApple)
 				if game.checkCollision(snek) {
 					msg := render("dead", "You died!")
@@ -202,6 +207,7 @@ func main() {
 				}
 				game.generateBoard(snek)
 				if eatApple {
+					// oldApple := render("empty", game.Apple)
 					game.Score += 100
 					score := render("score", game.Score)
 					if err = conn.WriteMessage(websocket.TextMessage, score.Bytes()); err != nil {
@@ -209,8 +215,9 @@ func main() {
 					}
 					game.generateApple()
 				}
-				boardTemplate := render("board", *game)
-				if err = conn.WriteMessage(websocket.TextMessage, boardTemplate.Bytes()); err != nil {
+				tailTemplate := render("empty", tail)
+				snekTemplate := render("snek", snek.Body)
+				if err = conn.WriteMessage(websocket.TextMessage, append(tailTemplate.Bytes(), snekTemplate.Bytes()...)); err != nil {
 					return
 				}
 			}
@@ -242,7 +249,9 @@ func main() {
 	})
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "./views/index.html")
+		game := new(Game)
+		tmpl := render("index", game)
+		w.Write(tmpl.Bytes())
 	})
 
 	http.ListenAndServe(":8080", nil)
