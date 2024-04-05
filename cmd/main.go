@@ -136,17 +136,10 @@ func newSnek() Snek {
 	return *newSnek
 }
 
-func renderBoard(game Game) bytes.Buffer {
+func render(blockName string, data any) bytes.Buffer {
 	tmpl := template.Must(template.ParseGlob("views/*.html"))
 	buffer := bytes.Buffer{}
-	tmpl.ExecuteTemplate(&buffer, "board", game)
-	return buffer
-}
-
-func renderText(text string) bytes.Buffer {
-	tmpl := template.Must(template.ParseGlob("views/*.html"))
-	buffer := bytes.Buffer{}
-	tmpl.ExecuteTemplate(&buffer, "text", text)
+	tmpl.ExecuteTemplate(&buffer, blockName, data)
 	return buffer
 }
 
@@ -186,6 +179,10 @@ func main() {
 			for {
 				time.Sleep(1 * time.Second)
 				game.Time++
+				msg := render("time", game.Time)
+				if err = conn.WriteMessage(websocket.TextMessage, msg.Bytes()); err != nil {
+					return
+				}
 			}
 		}()
 
@@ -196,7 +193,7 @@ func main() {
 				eatApple := game.isEatingApple(snek, game.Apple)
 				snek.move(direction, *game, eatApple)
 				if game.checkCollision(snek) {
-					msg := renderText("You died!")
+					msg := render("dead", "You died!")
 					if err = conn.WriteMessage(websocket.TextMessage, msg.Bytes()); err != nil {
 						return
 					}
@@ -206,9 +203,13 @@ func main() {
 				game.generateBoard(snek)
 				if eatApple {
 					game.Score += 100
+					score := render("score", game.Score)
+					if err = conn.WriteMessage(websocket.TextMessage, score.Bytes()); err != nil {
+						return
+					}
 					game.generateApple()
 				}
-				boardTemplate := renderBoard(*game)
+				boardTemplate := render("board", *game)
 				if err = conn.WriteMessage(websocket.TextMessage, boardTemplate.Bytes()); err != nil {
 					return
 				}

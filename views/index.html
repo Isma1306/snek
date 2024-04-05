@@ -36,6 +36,8 @@
 </head>
 
 <body id="body">
+  <h1>Score: <span id="score">0</span></h1>
+  <h2>Time: <span id="time">0</span></h2>
   <div id="board"></div>
   <div hx-ext="ws" ws-connect="/game">
     <form style="visibility: hidden;" id="form" ws-send>

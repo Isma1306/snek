@@ -1,7 +1,5 @@
 {{block "board" . }}
 <div hx-swap-oob="innerHTML:#board">
-  <h1>Score: {{.Score}}</h1>
-  <h2>Time: {{.Time}}</h2>
   <div class="board">{{range .Board}}{{template "row" . }}{{end}}</div>
 </div>
 {{ end }}
@@ -15,9 +13,17 @@
 <div {{ if .Fill }} class="snek square" {{end}} class="square"></div>
 {{ end}}
 
-{{block "text" . }}
+{{block "dead" . }}
 <div hx-swap-oob="innerHTML:#body">
   <h1>{{.}}</h1>
   <button>start again</button>
 </div>
+{{ end}}
+
+{{block "score" . }}
+<span hx-swap-oob="innerHTML:#score">{{.}}</span>
+{{ end}}
+
+{{block "time" . }}
+<span hx-swap-oob="innerHTML:#time">{{.}}</span>
 {{ end}}
