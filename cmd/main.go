@@ -29,7 +29,7 @@ type Res struct {
 type Game struct {
 	Time  int
 	Board Board
-	Apple [2]int
+	Apple Unit
 	Level int
 	Score int
 }
@@ -47,8 +47,8 @@ type Snek struct {
 	Body []Unit
 }
 
-func (g *Game) isEatingApple(snek Snek, apple [2]int) bool {
-	return apple[0] == snek.Body[0].Position[0] && apple[1] == snek.Body[0].Position[1]
+func (g *Game) isEatingApple(snek Snek, apple Unit) bool {
+	return apple.Position[0] == snek.Body[0].Position[0] && apple.Position[1] == snek.Body[0].Position[1]
 }
 
 func (s *Snek) move(direction string, game Game, eatApple bool) error {
@@ -103,8 +103,8 @@ func (g *Game) generateBoard(snek Snek) {
 		g.Board[unit.Position[0]][unit.Position[1]].Fill = "snek"
 		g.Board[unit.Position[0]][unit.Position[1]].IsOcupied = true
 	}
-	g.Board[g.Apple[0]][g.Apple[1]].Fill = "apple"
-	g.Board[g.Apple[0]][g.Apple[1]].IsOcupied = true
+	g.Board[g.Apple.Position[0]][g.Apple.Position[1]].Fill = "apple"
+	g.Board[g.Apple.Position[0]][g.Apple.Position[1]].IsOcupied = true
 }
 
 func (g *Game) generateApple() {
@@ -112,7 +112,7 @@ func (g *Game) generateApple() {
 	if g.Board[newPostion[0]][newPostion[1]].IsOcupied {
 		g.generateApple()
 	} else {
-		g.Apple = newPostion
+		g.Apple = newUnit(newPostion)
 	}
 }
 func (g *Game) checkCollision(snek Snek) bool {
@@ -125,9 +125,7 @@ func (g *Game) checkCollision(snek Snek) bool {
 }
 
 func newUnit(position [2]int) Unit {
-	newUnit := new(Unit)
-	newUnit.Position = position
-	return *newUnit
+	return Unit{Position: position}
 }
 
 func newSnek() Snek {
@@ -195,7 +193,9 @@ func main() {
 			for {
 				time.Sleep(300 * time.Millisecond)
 				eatApple := game.isEatingApple(snek, game.Apple)
+				templateToRender := []byte{}
 				tail := snek.Body[len(snek.Body)-1]
+
 				snek.move(direction, *game, eatApple)
 				if game.checkCollision(snek) {
 					msg := render("dead", "You died!")
@@ -207,17 +207,21 @@ func main() {
 				}
 				game.generateBoard(snek)
 				if eatApple {
-					// oldApple := render("empty", game.Apple)
+					oldApple := render("empty", game.Apple)
 					game.Score += 100
 					score := render("score", game.Score)
 					if err = conn.WriteMessage(websocket.TextMessage, score.Bytes()); err != nil {
 						return
 					}
 					game.generateApple()
+					newApple := render("apple", game.Apple)
+					templateToRender = append(append(templateToRender, oldApple.Bytes()...), newApple.Bytes()...)
 				}
 				tailTemplate := render("empty", tail)
 				snekTemplate := render("snek", snek.Body)
-				if err = conn.WriteMessage(websocket.TextMessage, append(tailTemplate.Bytes(), snekTemplate.Bytes()...)); err != nil {
+
+				templateToRender = append(append(templateToRender, tailTemplate.Bytes()...), snekTemplate.Bytes()...)
+				if err = conn.WriteMessage(websocket.TextMessage, templateToRender); err != nil {
 					return
 				}
 			}

@@ -44,5 +44,6 @@
 {{ end}}
 
 {{block "apple" . }}
-<div class="square snek" id="block{{range .}}{{.}}{{end}}" hx-swap-oob="outerHTML:#block{{range .}}{{.}}{{end}}"></div>
+<div class="square snek" id="block{{range .Position}}{{.}}{{end}}"
+  hx-swap-oob="outerHTML:#block{{range .Position}}{{.}}{{end}}"></div>
 {{ end}}
