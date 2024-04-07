@@ -1,88 +1,84 @@
 {{ block "index" . }}
 <!DOCTYPE html>
 <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <script src="https://unpkg.com/htmx.org@1.9.11"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.11/dist/ext/ws.js"></script>
+    <style>
+      .board {
+        display: flex;
+        flex-direction: row;
+        gap: 1px;
+        width: fit-content;
+        border: 5px solid #3f3f3f;
+      }
 
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Document</title>
-  <script src="https://unpkg.com/htmx.org@1.9.11"></script>
-  <script src="https://unpkg.com/htmx.org@1.9.11/dist/ext/ws.js"></script>
-  <style>
-    .board {
-      display: flex;
-      flex-direction: row;
-      gap: 1px;
-      width: fit-content;
-      border: 5px solid #3f3f3f;
-    }
+      .row {
+        display: flex;
+        justify-content: space-around;
+        flex-direction: column-reverse;
+        width: fit-content;
+        gap: 1px;
+      }
 
-    .row {
-      display: flex;
-      justify-content: space-around;
-      flex-direction: column-reverse;
-      width: fit-content;
-      gap: 1px
-    }
+      .square {
+        width: 30px;
+        height: 30px;
+      }
 
-    .square {
-      width: 30px;
-      height: 30px;
-    }
+      .snek {
+        background-color: #3f3f3f;
+      }
+    </style>
+  </head>
 
-    .snek {
-      background-color: #3f3f3f;
-    }
-  </style>
-</head>
-
-<body id="body">
-  <h1>Score: <span id="score">0</span></h1>
-  <h2>Time: <span id="time">0</span></h2>
-  <div id="board">
-    <div class="board">
-      {{range $i, $e := .Board}}
-      <div class="row">
-        {{range $j, $s := .}}
-        <div class="square" id="block{{$i}}{{$j}}"></div>
-        {{end}}
+  <body id="body">
+    <h1>Score: <span id="score">0</span></h1>
+    <h2>Time: <span id="time">0</span></h2>
+    <div id="board">
+      <div class="board">
+        {{- range $i, $e := .Board -}}
+        <div class="row">
+          {{- range $j, $s := . -}}
+          <div class="square" id="block{{$i}}{{$j}}"></div>
+          {{- end -}}
+        </div>
+        {{- end -}}
       </div>
-      {{end}}
     </div>
-  </div>
-  <div hx-ext="ws" ws-connect="/game">
-    <form style="visibility: hidden;" id="form" ws-send>
-      <input id="direction" name="direction" value="up">
-    </form>
-  </div>
-</body>
-
+    <div hx-ext="ws" ws-connect="/game">
+      <form style="visibility: hidden" id="form" ws-send>
+        <input id="direction" name="direction" value="up" />
+      </form>
+    </div>
+  </body>
 </html>
 
 <script>
-  const input = document.getElementById("direction");
-  const form = document.getElementById("form");
+  const input = document.getElementById('direction')
+  const form = document.getElementById('form')
 
-  document.body.addEventListener("keyup", (event) => {
+  document.body.addEventListener('keyup', (event) => {
     switch (event.key) {
-      case "w":
-        input.value = "up";
-        break;
-      case "s":
-        input.value = "down";
-        break;
-      case "a":
-        input.value = "left";
-        break;
-
-      case "d":
-        input.value = "right";
-        break;
-
+      case 'w':
+        input.value = 'up'
+        break
+      case 's':
+        input.value = 'down'
+        break
+      case 'a':
+        input.value = 'left'
+        break
+      case 'd':
+        input.value = 'right'
+        break
       default:
-        break;
+        break
     }
-    form.requestSubmit();
-  });
+    form.requestSubmit()
+  })
 </script>
 {{end}}

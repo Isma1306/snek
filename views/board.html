@@ -1,49 +1,24 @@
 {{block "board" . }}
 <div hx-swap-oob="innerHTML:#board">
-  <div class="board">{{range .Board}}{{template "row" . }}{{end}}</div>
+  <div class="board">{{range .Board}}{{template "row" . }}{{- end -}}</div>
 </div>
-{{ end }}
-
-
-{{block "row" . }}
-<div class="row">{{range .}}{{template "square" .}}{{end}}</div>
-{{ end}}
-
-{{block "square" . }}
-<div {{ if .Fill }} class="snek square" {{end}} class="square"></div>
-{{ end}}
-
-{{block "dead" . }}
+{{ end }} {{block "row" . }}
+<div class="row">{{range .}}{{template "square" .}}{{- end -}}</div>
+{{ end}} {{block "square" . }}
+<div {{ if .Fill }} class="snek square" {{- end -}} class="square"></div>
+{{ end}} {{block "dead" . }}
 <div hx-swap-oob="innerHTML:#body">
   <h1>{{.}}</h1>
   <button>start again</button>
 </div>
-{{ end}}
-
-{{block "score" . }}
+{{ end}} {{block "score" . }}
 <span hx-swap-oob="innerHTML:#score">{{.}}</span>
-{{ end}}
-
-{{block "time" . }}
+{{ end}} {{block "time" . }}
 <span hx-swap-oob="innerHTML:#time">{{.}}</span>
-{{ end}}
-
-
-{{block "unit" . }}
-<div class="snek square" id="block{{range .}}{{.}}{{end}}" hx-swap-oob="outerHTML:#block{{range .}}{{.}}{{end}}"></div>
-{{ end}}
-
-{{block "snek" . }}
-{{range .}}{{template "unit" .Position }}{{end}}
-{{ end}}
-
-
-{{block "empty" . }}
-<div class="square" id="block{{range .Position}}{{.}}{{end}}"
-  hx-swap-oob="outerHTML:#block{{range .Position}}{{.}}{{end}}"></div>
-{{ end}}
-
-{{block "apple" . }}
-<div class="square snek" id="block{{range .Position}}{{.}}{{end}}"
-  hx-swap-oob="outerHTML:#block{{range .Position}}{{.}}{{end}}"></div>
-{{ end}}
+{{ end}} {{- block "unit" . -}}
+<div class="snek square" id="block{{range .}}{{.}}{{- end -}}" hx-swap-oob="outerHTML:#block{{range .}}{{.}}{{- end -}}"></div>
+{{- end -}} {{- block "snek" . -}} {{- range . -}}{{template "unit" .Position }}{{- end -}} {{- end -}} {{- block "empty" . -}}
+<div class="square" id="block{{- range .Position -}}{{.}}{{- end -}}" hx-swap-oob="outerHTML:#block{{- range .Position -}}{{.}}{{- end -}}"></div>
+{{- end -}} {{- block "apple" . -}}
+<div class="square snek" id="block{{range .Position}}{{.}}{{- end -}}" hx-swap-oob="outerHTML:#block{{range .Position}}{{.}}{{- end -}}"></div>
+{{- end -}}
