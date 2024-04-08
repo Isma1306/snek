@@ -9,7 +9,7 @@
 {{ end}} {{block "dead" . }}
 <div hx-swap-oob="innerHTML:#body">
   <h1>{{.}}</h1>
-  <button>start again</button>
+  <a href="./">start again</a>
 </div>
 {{ end}} {{block "score" . }}
 <span hx-swap-oob="innerHTML:#score">{{.}}</span>
