@@ -115,7 +115,7 @@ func main() {
 		w.Write(tmpl.Bytes())
 	})
 
-	http.ListenAndServe(":8080", nil)
+	http.ListenAndServe("0.0.0.0:10000", nil)
 }
 
 func timeLoop(game *Game, conn *websocket.Conn) {
