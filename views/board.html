@@ -6,10 +6,10 @@
 <div class="row">{{range .}}{{template "square" .}}{{- end -}}</div>
 {{ end}} {{block "square" . }}
 <div {{ if .Fill }} class="snek square" {{- end -}} class="square"></div>
-{{ end}} {{block "dead" . }}
+{{ end}} {{block "header" . }}
 <div hx-swap-oob="innerHTML:#body">
   <h1>{{.}}</h1>
-  <a href="./">start again</a>
+  <a href="./start">start!</a>
 </div>
 {{ end}} {{block "score" . }}
 <span hx-swap-oob="innerHTML:#score">{{.}}</span>

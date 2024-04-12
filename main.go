@@ -17,6 +17,14 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
+type Message struct {
+	Username string `json:"username"`
+	Message  string `json:"message"`
+}
+
+var clients = make(map[*websocket.Conn]bool)
+var broadcast = make(chan Message)
+
 type Res struct {
 	Direction string `json:"direction"`
 }
@@ -55,7 +63,7 @@ func main() {
 
 				game.Snek.move(*game, eatApple)
 				if game.checkCollision(game.Snek) {
-					msg := Render("dead", "You died!")
+					msg := Render("header", "You died!")
 					if err = conn.WriteMessage(websocket.TextMessage, msg.Bytes()); err != nil {
 						return
 					}
@@ -109,9 +117,15 @@ func main() {
 
 	})
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/start", func(w http.ResponseWriter, r *http.Request) {
 		game := new(Game)
-		tmpl := Render("index", game)
+		tmpl := Render("start", game)
+		w.Write(tmpl.Bytes())
+	})
+
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+
+		tmpl := Render("index", "Welcome to Snek!")
 		w.Write(tmpl.Bytes())
 	})
 
