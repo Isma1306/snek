@@ -49,6 +49,7 @@
         {{- end -}}
       </div>
     </div>
+    <button class="btn" hx-get="test">test</button>
     <div hx-ext="ws" ws-connect="/game">
       <form style="visibility: hidden" id="form" ws-send>
         <input id="direction" name="direction" value="up" />
