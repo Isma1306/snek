@@ -79,7 +79,6 @@ func (s *Snek) move(game Game, eatApple bool) error {
 			s.Body[i].Position = s.Body[i-1].Position
 		}
 	}
-
 	return nil
 }
 
@@ -90,9 +89,9 @@ func (g *Game) generateBoard() {
 			g.Board[unit.Position[0]][unit.Position[1]].Fill = "snek"
 			g.Board[unit.Position[0]][unit.Position[1]].IsOcupied = true
 		}
-		g.Board[g.Apple.Position[0]][g.Apple.Position[1]].Fill = "apple"
-		g.Board[g.Apple.Position[0]][g.Apple.Position[1]].IsOcupied = true
 	}
+	g.Board[g.Apple.Position[0]][g.Apple.Position[1]].Fill = "apple"
+	g.Board[g.Apple.Position[0]][g.Apple.Position[1]].IsOcupied = true
 }
 
 func (g *Game) generateApple() {
@@ -104,12 +103,7 @@ func (g *Game) generateApple() {
 	}
 }
 func (g *Game) checkCollision(snek Snek) bool {
-	for i := 1; i < len(snek.Body); i++ {
-		if snek.Body[i].Position[0] == snek.Body[0].Position[0] && snek.Body[i].Position[1] == snek.Body[0].Position[1] {
-			return true
-		}
-	}
-	return false
+	return g.Board[snek.Body[0].Position[0]][snek.Body[0].Position[1]].Fill == "snek"
 }
 
 func newUnit(position [2]int) Unit {

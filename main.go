@@ -15,6 +15,7 @@ import (
 type Client struct {
 	Snek      Snek
 	Broadcast chan string
+	Score     int
 }
 
 var upgrader = websocket.Upgrader{
@@ -38,6 +39,7 @@ func main() {
 	})
 
 	http.HandleFunc("/newgame", func(w http.ResponseWriter, r *http.Request) {
+		// TODO: remove go routines after the game finishes
 		if game.Time < 1 {
 			go gameLoop()
 			go timeLoop(game)
@@ -69,34 +71,48 @@ func timeLoop(game *Game) {
 
 func gameLoop() {
 	for {
-		time.Sleep(300 * time.Millisecond)
-		eatApple := false
+		time.Sleep(600 * time.Millisecond)
+		isAppleEated := false
 
 		templateToRender := []byte{}
 		tailTemplate := []byte{}
 		snekTemplate := []byte{}
 
-		for _, client := range game.Players {
-			tail := client.Snek.Body[len(client.Snek.Body)-1]
-			tailToRemove := Render("empty", tail)
-			tailTemplate = append(tailTemplate, tailToRemove.Bytes()...)
-
-			head := Render("apple", client.Snek.Body[0])
+		for conn, player := range game.Players {
+			isEatingApple := game.isEatingApple(player.Snek, game.Apple)
+			tail := player.Snek.Body[len(player.Snek.Body)-1]
+			player.Snek.move(*game, isEatingApple)
+			if isEatingApple {
+				isAppleEated = true
+				player.Score += 100
+				score := Render("score", player.Score)
+				conn.WriteMessage(websocket.TextMessage, score.Bytes())
+			} else {
+				tailToRemove := Render("empty", tail)
+				tailTemplate = append(tailTemplate, tailToRemove.Bytes()...)
+			}
+			head := Render("apple", player.Snek.Body[0])
 			snekTemplate = append(snekTemplate, head.Bytes()...)
-			client.Snek.move(*game, eatApple)
-			if game.checkCollision(client.Snek) {
+		}
+
+		// check if a player hit something after all the snek moved
+		// TODO: fix collision, is still wonky
+		for conn, player := range game.Players {
+			if game.checkCollision(player.Snek) {
 				msg := Render("header", "You died!")
-				broadcastTmpl(msg.Bytes())
+				err := conn.WriteMessage(websocket.TextMessage, msg.Bytes())
+				if err != nil {
+					log.Println(err)
+					conn.Close()
+					delete(game.Players, conn)
+				}
 
 			}
 		}
 
 		game.generateBoard()
-		if eatApple {
-			game.Score += 100
-			score := Render("score", game.Score)
-			broadcastTmpl(score.Bytes())
 
+		if isAppleEated {
 			game.generateApple()
 			newApple := Render("apple", game.Apple)
 			templateToRender = append(templateToRender, newApple.Bytes()...)
@@ -146,9 +162,11 @@ func handleNewPlayer(w http.ResponseWriter, r *http.Request) {
 	if len(game.Players) == 0 {
 		startGame()
 	}
-	player := Client{Snek: game.newSnek(), Broadcast: make(chan string)}
+	player := Client{Snek: game.newSnek(), Broadcast: make(chan string), Score: 0}
 	game.Players[conn] = &player
-
+	snekTemplate := Render("snek", player.Snek.Body)
+	appleTemplate := Render("apple", game.Apple)
+	broadcastTmpl(append(appleTemplate.Bytes(), snekTemplate.Bytes()...))
 	defer conn.Close()
 	conn.SetCloseHandler(func(code int, text string) error {
 		log.Printf("connection lost with client: %s", conn.RemoteAddr())
@@ -198,7 +216,5 @@ func startGame() {
 	game.Players = make(map[*websocket.Conn]*Client)
 	game.generateApple()
 	game.generateBoard()
-	appleTemplate := Render("apple", game.Apple)
-	broadcastTmpl(appleTemplate.Bytes())
 
 }
