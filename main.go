@@ -13,7 +13,8 @@ import (
 )
 
 type Client struct {
-	Snek Snek
+	Snek      Snek
+	Broadcast chan string
 }
 
 var upgrader = websocket.Upgrader{
@@ -21,7 +22,6 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 var game = new(Game)
-var broadcast = make(chan string)
 
 type Res struct {
 	Direction string `json:"direction"`
@@ -38,8 +38,10 @@ func main() {
 	})
 
 	http.HandleFunc("/newgame", func(w http.ResponseWriter, r *http.Request) {
-
-		// go gameLoop()
+		if game.Time < 1 {
+			go gameLoop()
+			go timeLoop(game)
+		}
 	})
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -54,7 +56,6 @@ func main() {
 
 func timeLoop(game *Game) {
 	for {
-		log.Println("loop")
 		if len(game.Players) == 0 {
 			game.Time = 0
 			break
@@ -76,7 +77,7 @@ func gameLoop() {
 		snekTemplate := []byte{}
 
 		for _, client := range game.Players {
-			tail := game.Snek.Body[len(game.Snek.Body)-1]
+			tail := client.Snek.Body[len(client.Snek.Body)-1]
 			tailToRemove := Render("empty", tail)
 			tailTemplate = append(tailTemplate, tailToRemove.Bytes()...)
 
@@ -126,7 +127,6 @@ func CheckDirection(item, direction string) bool {
 }
 
 func broadcastTmpl(tmpl []byte) {
-	log.Println(game.Players)
 	for client := range game.Players {
 		err := client.WriteMessage(websocket.TextMessage, tmpl)
 		if err != nil {
@@ -143,11 +143,12 @@ func handleNewPlayer(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("Error upgrading: %s", err)
 	}
-	player := Client{Snek: game.newSnek()}
 	if len(game.Players) == 0 {
 		startGame()
 	}
+	player := Client{Snek: game.newSnek(), Broadcast: make(chan string)}
 	game.Players[conn] = &player
+
 	defer conn.Close()
 	conn.SetCloseHandler(func(code int, text string) error {
 		log.Printf("connection lost with client: %s", conn.RemoteAddr())
@@ -158,7 +159,7 @@ func handleNewPlayer(w http.ResponseWriter, r *http.Request) {
 
 	go func() {
 		for {
-			game.Players[conn].Snek.Direction = <-broadcast
+			player.Snek.Direction = <-player.Broadcast
 
 		}
 	}()
@@ -167,7 +168,9 @@ func handleNewPlayer(w http.ResponseWriter, r *http.Request) {
 	for {
 		_, msg, err := conn.ReadMessage()
 		if err != nil {
+			deletedSnek := Render("deleteSnek", player.Snek)
 			delete(game.Players, conn)
+			broadcastTmpl(deletedSnek.Bytes())
 			log.Println("Error reading message")
 			return
 		}
@@ -180,11 +183,11 @@ func handleNewPlayer(w http.ResponseWriter, r *http.Request) {
 		}
 
 		log.Printf("Recieve: %s From: %s", response.Direction, conn.RemoteAddr())
-		if CheckDirection(game.Snek.Direction, "vertical") && CheckDirection(response.Direction, "horizontal") {
-			broadcast <- response.Direction
+		if CheckDirection(player.Snek.Direction, "vertical") && CheckDirection(response.Direction, "horizontal") {
+			player.Broadcast <- response.Direction
 		}
-		if CheckDirection(game.Snek.Direction, "horizontal") && CheckDirection(response.Direction, "vertical") {
-			broadcast <- response.Direction
+		if CheckDirection(player.Snek.Direction, "horizontal") && CheckDirection(response.Direction, "vertical") {
+			player.Broadcast <- response.Direction
 		}
 	}
 
@@ -197,5 +200,5 @@ func startGame() {
 	game.generateBoard()
 	appleTemplate := Render("apple", game.Apple)
 	broadcastTmpl(appleTemplate.Bytes())
-	go timeLoop(game)
+
 }

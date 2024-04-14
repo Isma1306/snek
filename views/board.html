@@ -21,4 +21,4 @@
 <div class="square" id="block{{- range .Position -}}{{.}}{{- end -}}" hx-swap-oob="outerHTML:#block{{- range .Position -}}{{.}}{{- end -}}"></div>
 {{- end -}} {{- block "apple" . -}}
 <div class="square snek" id="block{{range .Position}}{{.}}{{- end -}}" hx-swap-oob="outerHTML:#block{{range .Position}}{{.}}{{- end -}}"></div>
-{{- end -}}
+{{- end -}} {{- block "deleteSnek" . -}} {{- range .Body -}} {{template "empty" . }} {{- end -}} {{- end -}}
