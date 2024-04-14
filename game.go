@@ -3,15 +3,18 @@ package main
 import (
 	"errors"
 	"math/rand/v2"
+
+	"github.com/gorilla/websocket"
 )
 
 type Game struct {
-	Time  int
-	Board Board
-	Snek  Snek
-	Apple Unit
-	Level int
-	Score int
+	Time    int
+	Board   Board
+	Snek    Snek
+	Apple   Unit
+	Level   int
+	Score   int
+	Players map[*websocket.Conn]*Client
 }
 
 type Board [10][10]Square
@@ -82,12 +85,14 @@ func (s *Snek) move(game Game, eatApple bool) error {
 
 func (g *Game) generateBoard() {
 	g.Board = *new(Board)
-	for _, unit := range g.Snek.Body {
-		g.Board[unit.Position[0]][unit.Position[1]].Fill = "snek"
-		g.Board[unit.Position[0]][unit.Position[1]].IsOcupied = true
+	for _, player := range g.Players {
+		for _, unit := range player.Snek.Body {
+			g.Board[unit.Position[0]][unit.Position[1]].Fill = "snek"
+			g.Board[unit.Position[0]][unit.Position[1]].IsOcupied = true
+		}
+		g.Board[g.Apple.Position[0]][g.Apple.Position[1]].Fill = "apple"
+		g.Board[g.Apple.Position[0]][g.Apple.Position[1]].IsOcupied = true
 	}
-	g.Board[g.Apple.Position[0]][g.Apple.Position[1]].Fill = "apple"
-	g.Board[g.Apple.Position[0]][g.Apple.Position[1]].IsOcupied = true
 }
 
 func (g *Game) generateApple() {
@@ -111,9 +116,9 @@ func newUnit(position [2]int) Unit {
 	return Unit{Position: position}
 }
 
-func (g *Game) newSnek() {
+func (g *Game) newSnek() Snek {
 	newSnek := new(Snek)
 	newSnek.Direction = "right"
 	newSnek.Body = []Unit{newUnit([2]int{2, 5}), newUnit([2]int{1, 5}), newUnit([2]int{0, 5})}
-	g.Snek = *newSnek
+	return *newSnek
 }
