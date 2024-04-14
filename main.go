@@ -32,8 +32,8 @@ func main() {
 
 	http.HandleFunc("/connect", handleNewPlayer)
 
-	http.HandleFunc("/start", func(w http.ResponseWriter, r *http.Request) {
-		tmpl := Render("start", game)
+	http.HandleFunc("/lobby", func(w http.ResponseWriter, r *http.Request) {
+		tmpl := Render("lobby", game)
 		w.Write(tmpl.Bytes())
 
 	})
@@ -47,7 +47,6 @@ func main() {
 	})
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-
 		tmpl := Render("index", "Welcome to Snek!")
 		w.Write(tmpl.Bytes())
 	})
