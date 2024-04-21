@@ -3,18 +3,21 @@ package main
 import (
 	"errors"
 	"math/rand/v2"
+
+	"github.com/gorilla/websocket"
 )
 
 type Game struct {
-	Time  int
-	Board Board
-	Snek  Snek
-	Apple Unit
-	Level int
-	Score int
+	Time    int
+	Board   Board
+	Snek    Snek
+	Apple   Unit
+	Level   int
+	Score   int
+	Players map[*websocket.Conn]*Player
 }
 
-type Board [10][10]Square
+type Board [20][20]Square
 
 type Square struct {
 	IsOcupied bool
@@ -22,6 +25,7 @@ type Square struct {
 }
 
 type Unit struct {
+	Color    string
 	Position [2]int
 }
 
@@ -76,15 +80,16 @@ func (s *Snek) move(game Game, eatApple bool) error {
 			s.Body[i].Position = s.Body[i-1].Position
 		}
 	}
-
 	return nil
 }
 
 func (g *Game) generateBoard() {
 	g.Board = *new(Board)
-	for _, unit := range g.Snek.Body {
-		g.Board[unit.Position[0]][unit.Position[1]].Fill = "snek"
-		g.Board[unit.Position[0]][unit.Position[1]].IsOcupied = true
+	for _, player := range g.Players {
+		for _, unit := range player.Snek.Body {
+			g.Board[unit.Position[0]][unit.Position[1]].Fill = "snek"
+			g.Board[unit.Position[0]][unit.Position[1]].IsOcupied = true
+		}
 	}
 	g.Board[g.Apple.Position[0]][g.Apple.Position[1]].Fill = "apple"
 	g.Board[g.Apple.Position[0]][g.Apple.Position[1]].IsOcupied = true
@@ -95,25 +100,34 @@ func (g *Game) generateApple() {
 	if g.Board[newPostion[0]][newPostion[1]].IsOcupied {
 		g.generateApple()
 	} else {
-		g.Apple = newUnit(newPostion)
+		g.Apple = newUnit(newPostion, "apple")
 	}
 }
 func (g *Game) checkCollision(snek Snek) bool {
-	for i := 1; i < len(snek.Body); i++ {
-		if snek.Body[i].Position[0] == snek.Body[0].Position[0] && snek.Body[i].Position[1] == snek.Body[0].Position[1] {
-			return true
-		}
-	}
-	return false
+	return g.Board[snek.Body[0].Position[0]][snek.Body[0].Position[1]].Fill == "snek"
 }
 
-func newUnit(position [2]int) Unit {
-	return Unit{Position: position}
+func newUnit(position [2]int, color string) Unit {
+	return Unit{Position: position, Color: color}
 }
 
-func (g *Game) newSnek() {
+func (g *Game) newSnek(player string) Snek {
 	newSnek := new(Snek)
-	newSnek.Direction = "right"
-	newSnek.Body = []Unit{newUnit([2]int{2, 5}), newUnit([2]int{1, 5}), newUnit([2]int{0, 5})}
-	g.Snek = *newSnek
+	switch player {
+	case "player0":
+		newSnek.Direction = "right"
+		newSnek.Body = []Unit{newUnit([2]int{2, 5}, player), newUnit([2]int{1, 5}, player), newUnit([2]int{0, 5}, player)}
+	case "player1":
+		newSnek.Direction = "left"
+		newSnek.Body = []Unit{newUnit([2]int{18, 10}, player), newUnit([2]int{19, 10}, player), newUnit([2]int{20, 10}, player)}
+	case "player2":
+		newSnek.Direction = "down"
+		newSnek.Body = []Unit{newUnit([2]int{10, 18}, player), newUnit([2]int{10, 19}, player), newUnit([2]int{10, 20}, player)}
+	case "player3":
+		newSnek.Direction = "up"
+		newSnek.Body = []Unit{newUnit([2]int{12, 0}, player), newUnit([2]int{12, 0}, player), newUnit([2]int{12, 0}, player)}
+
+	}
+
+	return *newSnek
 }

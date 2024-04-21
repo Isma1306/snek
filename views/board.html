@@ -9,16 +9,24 @@
 {{ end}} {{block "header" . }}
 <div hx-swap-oob="innerHTML:#body">
   <h1>{{.}}</h1>
-  <a href="./start">start!</a>
+  <a href="./lobby">start!</a>
 </div>
 {{ end}} {{block "score" . }}
 <span hx-swap-oob="innerHTML:#score">{{.}}</span>
 {{ end}} {{block "time" . }}
 <span hx-swap-oob="innerHTML:#time">{{.}}</span>
-{{ end}} {{- block "unit" . -}}
-<div class="snek square" id="block{{range .}}{{.}}{{- end -}}" hx-swap-oob="outerHTML:#block{{range .}}{{.}}{{- end -}}"></div>
-{{- end -}} {{- block "snek" . -}} {{- range . -}}{{template "unit" .Position }}{{- end -}} {{- end -}} {{- block "empty" . -}}
-<div class="square" id="block{{- range .Position -}}{{.}}{{- end -}}" hx-swap-oob="outerHTML:#block{{- range .Position -}}{{.}}{{- end -}}"></div>
-{{- end -}} {{- block "apple" . -}}
-<div class="square snek" id="block{{range .Position}}{{.}}{{- end -}}" hx-swap-oob="outerHTML:#block{{range .Position}}{{.}}{{- end -}}"></div>
+{{ end}}
+<!--  -->
+{{- block "unit" . -}}
+<div class="snek square {{.Color}}" id="block-x{{index .Position 0}}y{{index .Position 1}}" hx-swap-oob="outerHTML:#block-x{{index .Position 0}}y{{index .Position 1}}"></div>
 {{- end -}}
+<!--  -->
+{{- block "snek" . -}} {{- range . -}}{{template "unit" .Position }}{{- end -}} {{- end -}} {{- block "empty" . -}}
+<div class="square" id="block-x{{index .Position 0}}y{{index .Position 1}}" hx-swap-oob="outerHTML:#block-x{{index .Position 0}}y{{index .Position 1}}"></div>
+{{- end -}}
+<!--  -->
+{{- block "apple" . -}}
+<div class="square {{.Color}}" id="block-x{{index .Position 0}}y{{index .Position 1}}" hx-swap-oob="outerHTML:#block-x{{index .Position 0}}y{{index .Position 1}}"></div>
+{{- end -}}
+<!--  -->
+{{- block "deleteSnek" . -}} {{- range .Body -}} {{template "empty" . }} {{- end -}} {{- end -}}
