@@ -6,13 +6,15 @@ import (
 	"fmt"
 	"html/template"
 	"log"
+	"math/rand/v2"
 	"net/http"
 	"time"
 
 	"github.com/gorilla/websocket"
 )
 
-type Client struct {
+type Player struct {
+	Id        int
 	Snek      Snek
 	Broadcast chan string
 	Score     int
@@ -90,7 +92,7 @@ func gameLoop() {
 				tailToRemove := Render("empty", tail)
 				tailTemplate = append(tailTemplate, tailToRemove.Bytes()...)
 			}
-			head := Render("apple", player.Snek.Body[0])
+			head := Render("unit", player.Snek.Body[0])
 			snekTemplate = append(snekTemplate, head.Bytes()...)
 		}
 
@@ -161,50 +163,63 @@ func handleNewPlayer(w http.ResponseWriter, r *http.Request) {
 	if len(game.Players) == 0 {
 		startGame()
 	}
-	player := Client{Snek: game.newSnek(), Broadcast: make(chan string), Score: 0}
-	game.Players[conn] = &player
-	snekTemplate := Render("snek", player.Snek.Body)
-	appleTemplate := Render("apple", game.Apple)
-	broadcastTmpl(append(appleTemplate.Bytes(), snekTemplate.Bytes()...))
-	defer conn.Close()
-	conn.SetCloseHandler(func(code int, text string) error {
-		log.Printf("connection lost with client: %s", conn.RemoteAddr())
+	if len(game.Players) > 3 {
+		msg := Render("header", "The lobby is Full!")
+		err := conn.WriteMessage(websocket.TextMessage, msg.Bytes())
+		if err != nil {
+			log.Println(err)
+		}
 		conn.Close()
-		delete(game.Players, conn)
-		return fmt.Errorf("connection close")
-	})
+	} else {
+		newId := getUnusedId()
+		player := Player{Snek: game.newSnek(fmt.Sprintf("player%v", newId)), Broadcast: make(chan string), Score: 0, Id: newId}
+		game.Players[conn] = &player
 
-	go func() {
-		for {
-			player.Snek.Direction = <-player.Broadcast
-
+		sneksToRender := []byte{}
+		for _, player := range game.Players {
+			snekTemp := Render("snek", player.Snek.Body)
+			sneksToRender = append(sneksToRender, snekTemp.Bytes()...)
 		}
-	}()
-
-	// read messages
-	for {
-		_, msg, err := conn.ReadMessage()
-		if err != nil {
-			deletedSnek := Render("deleteSnek", player.Snek)
+		appleTemplate := Render("apple", game.Apple)
+		broadcastTmpl(append(appleTemplate.Bytes(), sneksToRender...))
+		defer conn.Close()
+		conn.SetCloseHandler(func(code int, text string) error {
+			log.Printf("connection lost with client: %s", conn.RemoteAddr())
+			conn.Close()
 			delete(game.Players, conn)
-			broadcastTmpl(deletedSnek.Bytes())
-			log.Println("Error reading message")
-			return
-		}
-		response := Res{}
-		err = json.Unmarshal([]byte(msg), &response)
-		if err != nil {
-			log.Println("Error parsing json")
-			return
+			return fmt.Errorf("connection close")
+		})
 
-		}
+		go func() {
+			for {
+				player.Snek.Direction = <-player.Broadcast
 
-		log.Printf("Recieve: %s From: %s", response.Direction, conn.RemoteAddr())
-		if CheckDirection(player.Snek.Direction, "vertical") && CheckDirection(response.Direction, "horizontal") {
-			player.Broadcast <- response.Direction
-		}
-		if CheckDirection(player.Snek.Direction, "horizontal") && CheckDirection(response.Direction, "vertical") {
-			player.Broadcast <- response.Direction
+			}
+		}()
+
+		// read messages
+		for {
+			_, msg, err := conn.ReadMessage()
+			if err != nil {
+				deletedSnek := Render("deleteSnek", player.Snek)
+				delete(game.Players, conn)
+				broadcastTmpl(deletedSnek.Bytes())
+				log.Println("Error reading message")
+				return
+			}
+			response := Res{}
+			err = json.Unmarshal([]byte(msg), &response)
+			if err != nil {
+				log.Println("Error parsing json")
+				return
+
+			}
+			if CheckDirection(player.Snek.Direction, "vertical") && CheckDirection(response.Direction, "horizontal") {
+				player.Broadcast <- response.Direction
+			}
+			if CheckDirection(player.Snek.Direction, "horizontal") && CheckDirection(response.Direction, "vertical") {
+				player.Broadcast <- response.Direction
+			}
 		}
 	}
 
@@ -212,8 +227,19 @@ func handleNewPlayer(w http.ResponseWriter, r *http.Request) {
 
 func startGame() {
 	game = new(Game)
-	game.Players = make(map[*websocket.Conn]*Client)
+	game.Players = make(map[*websocket.Conn]*Player)
 	game.generateApple()
 	game.generateBoard()
+
+}
+
+func getUnusedId() int {
+	id := rand.IntN(4)
+	for _, player := range game.Players {
+		if id == player.Id {
+			id = getUnusedId()
+		}
+	}
+	return id
 
 }
