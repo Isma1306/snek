@@ -72,7 +72,7 @@ func timeLoop(game *Game) {
 
 func gameLoop() {
 	for {
-		time.Sleep(600 * time.Millisecond)
+		time.Sleep(time.Duration(600-(game.Level*50)) * time.Millisecond)
 		isAppleEated := false
 
 		templateToRender := []byte{}
@@ -80,7 +80,7 @@ func gameLoop() {
 		snekTemplate := []byte{}
 
 		for conn, player := range game.Players {
-			isEatingApple := game.isEatingApple(player.Snek, game.Apple)
+			isEatingApple := game.isEatingApple(player.Snek)
 			tail := player.Snek.Body[len(player.Snek.Body)-1]
 			player.Snek.move(*game, isEatingApple)
 			if isEatingApple {
@@ -117,10 +117,8 @@ func gameLoop() {
 			game.generateApple()
 			newApple := Render("apple", game.Apple)
 			templateToRender = append(templateToRender, newApple.Bytes()...)
-		} else {
-			templateToRender = append(templateToRender, tailTemplate...)
 		}
-
+		templateToRender = append(templateToRender, tailTemplate...)
 		templateToRender = append(templateToRender, snekTemplate...)
 		broadcastTmpl(templateToRender)
 	}
@@ -227,6 +225,7 @@ func handleNewPlayer(w http.ResponseWriter, r *http.Request) {
 
 func startGame() {
 	game = new(Game)
+	game.Level = 5
 	game.Players = make(map[*websocket.Conn]*Player)
 	game.generateApple()
 	game.generateBoard()

@@ -34,8 +34,8 @@ type Snek struct {
 	Body      []Unit
 }
 
-func (g *Game) isEatingApple(snek Snek, apple Unit) bool {
-	return apple.Position[0] == snek.Body[0].Position[0] && apple.Position[1] == snek.Body[0].Position[1]
+func (g *Game) isEatingApple(snek Snek) bool {
+	return g.Board[snek.Body[0].Position[0]][snek.Body[0].Position[1]].Fill == "apple"
 }
 
 func (s *Snek) move(game Game, eatApple bool) error {
