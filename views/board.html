@@ -21,7 +21,9 @@
 <div class="snek square {{.Color}}" id="block-x{{index .Position 0}}y{{index .Position 1}}" hx-swap-oob="outerHTML:#block-x{{index .Position 0}}y{{index .Position 1}}"></div>
 {{- end -}}
 <!--  -->
-{{- block "snek" . -}} {{- range . -}}{{template "unit" .Position }}{{- end -}} {{- end -}} {{- block "empty" . -}}
+{{- block "snek" . -}} {{- range . -}}{{template "unit" . }}{{- end -}} {{- end -}}
+<!--  -->
+{{- block "empty" . -}}
 <div class="square" id="block-x{{index .Position 0}}y{{index .Position 1}}" hx-swap-oob="outerHTML:#block-x{{index .Position 0}}y{{index .Position 1}}"></div>
 {{- end -}}
 <!--  -->

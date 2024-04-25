@@ -119,13 +119,13 @@ func (g *Game) newSnek(player string) Snek {
 		newSnek.Body = []Unit{newUnit([2]int{2, 5}, player), newUnit([2]int{1, 5}, player), newUnit([2]int{0, 5}, player)}
 	case "player1":
 		newSnek.Direction = "left"
-		newSnek.Body = []Unit{newUnit([2]int{18, 10}, player), newUnit([2]int{19, 10}, player), newUnit([2]int{20, 10}, player)}
+		newSnek.Body = []Unit{newUnit([2]int{17, 10}, player), newUnit([2]int{18, 10}, player), newUnit([2]int{19, 10}, player)}
 	case "player2":
 		newSnek.Direction = "down"
-		newSnek.Body = []Unit{newUnit([2]int{10, 18}, player), newUnit([2]int{10, 19}, player), newUnit([2]int{10, 20}, player)}
+		newSnek.Body = []Unit{newUnit([2]int{10, 17}, player), newUnit([2]int{10, 18}, player), newUnit([2]int{10, 19}, player)}
 	case "player3":
 		newSnek.Direction = "up"
-		newSnek.Body = []Unit{newUnit([2]int{12, 0}, player), newUnit([2]int{12, 0}, player), newUnit([2]int{12, 0}, player)}
+		newSnek.Body = []Unit{newUnit([2]int{12, 2}, player), newUnit([2]int{12, 1}, player), newUnit([2]int{12, 0}, player)}
 
 	}
 
