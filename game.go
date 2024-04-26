@@ -11,7 +11,7 @@ type Game struct {
 	Time    int
 	Board   Board
 	Snek    Snek
-	Apple   Unit
+	Apples  []Unit
 	Level   int
 	Score   int
 	Players map[*websocket.Conn]*Player
@@ -91,18 +91,25 @@ func (g *Game) generateBoard() {
 			g.Board[unit.Position[0]][unit.Position[1]].IsOcupied = true
 		}
 	}
-	g.Board[g.Apple.Position[0]][g.Apple.Position[1]].Fill = "apple"
-	g.Board[g.Apple.Position[0]][g.Apple.Position[1]].IsOcupied = true
+	for _, apple := range g.Apples {
+		g.Board[apple.Position[0]][apple.Position[1]].Fill = "apple"
+		g.Board[apple.Position[0]][apple.Position[1]].IsOcupied = true
+	}
+
 }
 
-func (g *Game) generateApple() {
+func (g *Game) generateApple() Unit {
+	var unit = Unit{}
 	newPostion := [2]int{rand.IntN(len(g.Board)), rand.IntN(len(g.Board))}
 	if g.Board[newPostion[0]][newPostion[1]].IsOcupied {
 		g.generateApple()
 	} else {
-		g.Apple = newUnit(newPostion, "apple")
+		unit = newUnit(newPostion, "apple")
+		g.Apples = append(g.Apples, unit)
 	}
+	return unit
 }
+
 func (g *Game) checkCollision(snek Snek) bool {
 	return g.Board[snek.Body[0].Position[0]][snek.Body[0].Position[1]].Fill == "snek"
 }

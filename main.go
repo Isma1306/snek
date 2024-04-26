@@ -73,18 +73,19 @@ func timeLoop(game *Game) {
 func gameLoop() {
 	for {
 		time.Sleep(time.Duration(600-(game.Level*50)) * time.Millisecond)
-		isAppleEated := false
 
 		templateToRender := []byte{}
 		tailTemplate := []byte{}
 		snekTemplate := []byte{}
+		applesToDelete := []Unit{}
 
 		for conn, player := range game.Players {
 			isEatingApple := game.isEatingApple(player.Snek)
 			tail := player.Snek.Body[len(player.Snek.Body)-1]
 			player.Snek.move(*game, isEatingApple)
 			if isEatingApple {
-				isAppleEated = true
+				applesToDelete = append(applesToDelete, player.Snek.Body[1])
+
 				player.Score += 100
 				score := Render("score", player.Score)
 				conn.WriteMessage(websocket.TextMessage, score.Bytes())
@@ -113,10 +114,19 @@ func gameLoop() {
 
 		game.generateBoard()
 
-		if isAppleEated {
-			game.generateApple()
-			newApple := Render("apple", game.Apple)
-			templateToRender = append(templateToRender, newApple.Bytes()...)
+		if len(applesToDelete) > 0 {
+			applesToUpdate := []byte{}
+			for _, apple := range applesToDelete {
+				for index, gameApple := range game.Apples {
+					if gameApple.Position[0] == apple.Position[0] && gameApple.Position[1] == apple.Position[1] {
+						game.Apples = append(game.Apples[:index], game.Apples[index+1:]...)
+					}
+				}
+				newApple := game.generateApple()
+				newRender := Render("apple", newApple)
+				applesToUpdate = append(applesToUpdate, newRender.Bytes()...)
+			}
+			templateToRender = append(templateToRender, applesToUpdate...)
 		}
 		templateToRender = append(templateToRender, tailTemplate...)
 		templateToRender = append(templateToRender, snekTemplate...)
@@ -172,14 +182,18 @@ func handleNewPlayer(w http.ResponseWriter, r *http.Request) {
 		newId := getUnusedId()
 		player := Player{Snek: game.newSnek(fmt.Sprintf("player%v", newId)), Broadcast: make(chan string), Score: 0, Id: newId}
 		game.Players[conn] = &player
-
+		game.generateApple()
 		sneksToRender := []byte{}
 		for _, player := range game.Players {
 			snekTemp := Render("snek", player.Snek.Body)
 			sneksToRender = append(sneksToRender, snekTemp.Bytes()...)
 		}
-		appleTemplate := Render("apple", game.Apple)
-		broadcastTmpl(append(appleTemplate.Bytes(), sneksToRender...))
+		appleToRender := []byte{}
+		for _, apple := range game.Apples {
+			appleTemp := Render("apple", apple)
+			appleToRender = append(appleToRender, appleTemp.Bytes()...)
+		}
+		broadcastTmpl(append(appleToRender, sneksToRender...))
 		defer conn.Close()
 		conn.SetCloseHandler(func(code int, text string) error {
 			log.Printf("connection lost with client: %s", conn.RemoteAddr())
@@ -227,7 +241,6 @@ func startGame() {
 	game = new(Game)
 	game.Level = 5
 	game.Players = make(map[*websocket.Conn]*Player)
-	game.generateApple()
 	game.generateBoard()
 
 }
