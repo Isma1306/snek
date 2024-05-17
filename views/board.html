@@ -6,12 +6,17 @@
 <div class="row">{{range .}}{{template "square" .}}{{- end -}}</div>
 {{ end}} {{block "square" . }}
 <div {{ if .Fill }} class="snek square" {{- end -}} class="square"></div>
-{{ end}} {{block "header" . }}
+{{ end}}
+<!--  -->
+{{block "header" . }}
 <div hx-swap-oob="innerHTML:#body">
   <h1>{{.}}</h1>
   <a href="./lobby">start!</a>
+  <button  hx-get='./create'>Create Lobby!</button>
 </div>
-{{ end}} {{block "score" . }}
+{{ end}}
+<!--  -->
+{{block "score" . }}
 <span hx-swap-oob="innerHTML:#score">{{.}}</span>
 {{ end}} {{block "time" . }}
 <span hx-swap-oob="innerHTML:#time">{{.}}</span>

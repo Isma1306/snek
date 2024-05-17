@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
 
@@ -30,6 +31,8 @@ type Res struct {
 	Direction string `json:"direction"`
 }
 
+var games = make(map[string]*Game)
+
 func main() {
 
 	http.HandleFunc("/connect", handleNewPlayer)
@@ -37,6 +40,29 @@ func main() {
 	http.HandleFunc("/lobby", func(w http.ResponseWriter, r *http.Request) {
 		tmpl := Render("lobby", game)
 		w.Write(tmpl.Bytes())
+
+	})
+
+	http.HandleFunc("/create", func(w http.ResponseWriter, r *http.Request) {
+		id := uuid.New().String()
+		games[id] = new(Game)
+		w.Header().Add("HX-Redirect", "/game/"+id)
+
+	})
+
+	http.HandleFunc("/game/", func(w http.ResponseWriter, r *http.Request) {
+		id := r.URL.Path[len("/view/"):]
+		val, ok := games[id]
+		if ok {
+			tmpl := Render("lobby", val)
+			w.Write(tmpl.Bytes())
+		} else {
+			log.Println("doesnt exist")
+			log.Println(id)
+			tmpl := Render("index", "This lobby doesn't exist!")
+			w.Write(tmpl.Bytes())
+			w.Header().Add("HX-Redirect", "/")
+		}
 
 	})
 
