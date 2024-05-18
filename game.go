@@ -8,6 +8,7 @@ import (
 )
 
 type Game struct {
+	Id      string
 	Time    int
 	Board   Board
 	Snek    Snek

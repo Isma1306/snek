@@ -60,6 +60,7 @@
   </head>
 
   <body id="body">
+    <h3>Lobby: <a href="./{{- .Id -}}">{{- .Id -}}</a></h3>
     <h1>Score: <span id="score">0</span></h1>
     <h2>Time: <span id="time">0</span></h2>
     <div id="board">
@@ -73,8 +74,8 @@
         {{- end -}}
       </div>
     </div>
-    <button class="btn" hx-get="newgame">Start new game</button>
-    <div hx-ext="ws" ws-connect="/connect">
+    <button class="btn" hx-get="/start/{{- .Id -}}">Start the game!</button>
+    <div hx-ext="ws" ws-connect="/connect/{{- .Id -}}">
       <form style="visibility: hidden" id="form" ws-send>
         <input id="direction" name="direction" value="up" />
       </form>

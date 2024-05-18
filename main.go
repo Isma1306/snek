@@ -17,7 +17,7 @@ import (
 type Player struct {
 	Id        int
 	Snek      Snek
-	Broadcast chan string
+	Direction chan string
 	Score     int
 }
 
@@ -25,40 +25,43 @@ var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 }
-var game = new(Game)
 
 type Res struct {
 	Direction string `json:"direction"`
+}
+
+type Lobby struct {
+	Game Game
+	Id   string
 }
 
 var games = make(map[string]*Game)
 
 func main() {
 
-	http.HandleFunc("/connect", handleNewPlayer)
+	http.HandleFunc("/connect/", handleNewPlayer)
 
-	http.HandleFunc("/lobby", func(w http.ResponseWriter, r *http.Request) {
-		tmpl := Render("lobby", game)
-		w.Write(tmpl.Bytes())
+	// http.HandleFunc("/lobby", func(w http.ResponseWriter, r *http.Request) {
+	// 	tmpl := Render("lobby", game)
+	// 	w.Write(tmpl.Bytes())
 
-	})
+	// })
 
 	http.HandleFunc("/create", func(w http.ResponseWriter, r *http.Request) {
 		id := uuid.New().String()
 		games[id] = new(Game)
+		games[id].Id = id
 		w.Header().Add("HX-Redirect", "/game/"+id)
 
 	})
 
 	http.HandleFunc("/game/", func(w http.ResponseWriter, r *http.Request) {
-		id := r.URL.Path[len("/view/"):]
+		id := r.URL.Path[len("/game/"):]
 		val, ok := games[id]
 		if ok {
 			tmpl := Render("lobby", val)
 			w.Write(tmpl.Bytes())
 		} else {
-			log.Println("doesnt exist")
-			log.Println(id)
 			tmpl := Render("index", "This lobby doesn't exist!")
 			w.Write(tmpl.Bytes())
 			w.Header().Add("HX-Redirect", "/")
@@ -66,12 +69,22 @@ func main() {
 
 	})
 
-	http.HandleFunc("/newgame", func(w http.ResponseWriter, r *http.Request) {
-		// TODO: remove go routines after the game finishes
-		if game.Time < 1 {
-			go gameLoop()
-			go timeLoop(game)
+	http.HandleFunc("/start/", func(w http.ResponseWriter, r *http.Request) {
+		id := r.URL.Path[len("/start/"):]
+		game, ok := games[id]
+		if ok {
+			if game.Time < 1 {
+				log.Printf("game %s started", id)
+				go gameLoop(game)
+				go timeLoop(game)
+			}
+		} else {
+			tmpl := Render("index", "Game already started!")
+			w.Write(tmpl.Bytes())
+			w.Header().Add("HX-Redirect", "/")
 		}
+		// TODO: remove go routines after the game finishes
+
 	})
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -87,17 +100,23 @@ func timeLoop(game *Game) {
 	for {
 		if len(game.Players) == 0 {
 			game.Time = 0
+			delete(games, game.Id)
+			log.Printf("game %s was deleted!", game.Id)
 			break
 		}
 		time.Sleep(1 * time.Second)
 		game.Time++
 		tmpl := Render("time", game.Time)
-		broadcastTmpl(tmpl.Bytes())
+		broadcastTmpl(tmpl.Bytes(), game)
 	}
 }
 
-func gameLoop() {
+func gameLoop(game *Game) {
 	for {
+		_, ok := games[game.Id]
+		if !ok {
+			break
+		}
 		time.Sleep(time.Duration(600-(game.Level*50)) * time.Millisecond)
 
 		templateToRender := []byte{}
@@ -131,10 +150,12 @@ func gameLoop() {
 				err := conn.WriteMessage(websocket.TextMessage, msg.Bytes())
 				if err != nil {
 					log.Println(err)
-					conn.Close()
-					delete(game.Players, conn)
 				}
-
+				conn.Close()
+				delete(game.Players, conn)
+				appleToRemove := Render("empty", game.Apples[len(game.Apples)-1])
+				templateToRender = append(templateToRender, appleToRemove.Bytes()...)
+				game.Apples = game.Apples[:len(game.Apples)-1]
 			}
 		}
 
@@ -156,7 +177,7 @@ func gameLoop() {
 		}
 		templateToRender = append(templateToRender, tailTemplate...)
 		templateToRender = append(templateToRender, snekTemplate...)
-		broadcastTmpl(templateToRender)
+		broadcastTmpl(templateToRender, game)
 	}
 }
 
@@ -177,7 +198,7 @@ func CheckDirection(item, direction string) bool {
 	return false
 }
 
-func broadcastTmpl(tmpl []byte) {
+func broadcastTmpl(tmpl []byte, game *Game) {
 	for client := range game.Players {
 		err := client.WriteMessage(websocket.TextMessage, tmpl)
 		if err != nil {
@@ -189,93 +210,98 @@ func broadcastTmpl(tmpl []byte) {
 }
 
 func handleNewPlayer(w http.ResponseWriter, r *http.Request) {
-
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Printf("Error upgrading: %s", err)
-	}
-	if len(game.Players) == 0 {
-		startGame()
-	}
-	if len(game.Players) > 3 {
-		msg := Render("header", "The lobby is Full!")
-		err := conn.WriteMessage(websocket.TextMessage, msg.Bytes())
-		if err != nil {
-			log.Println(err)
-		}
-		conn.Close()
+	id := r.URL.Path[len("/connect/"):]
+	game, ok := games[id]
+	if !ok {
+		tmpl := Render("index", "Couldn't connect with the game!")
+		w.Write(tmpl.Bytes())
 	} else {
-		newId := getUnusedId()
-		player := Player{Snek: game.newSnek(fmt.Sprintf("player%v", newId)), Broadcast: make(chan string), Score: 0, Id: newId}
-		game.Players[conn] = &player
-		game.generateApple()
-		sneksToRender := []byte{}
-		for _, player := range game.Players {
-			snekTemp := Render("snek", player.Snek.Body)
-			sneksToRender = append(sneksToRender, snekTemp.Bytes()...)
+
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			log.Printf("Error upgrading: %s", err)
 		}
-		appleToRender := []byte{}
-		for _, apple := range game.Apples {
-			appleTemp := Render("apple", apple)
-			appleToRender = append(appleToRender, appleTemp.Bytes()...)
+		if len(game.Players) == 0 {
+			startGame(game)
 		}
-		broadcastTmpl(append(appleToRender, sneksToRender...))
-		defer conn.Close()
-		conn.SetCloseHandler(func(code int, text string) error {
-			log.Printf("connection lost with client: %s", conn.RemoteAddr())
+		if len(game.Players) > 3 {
+			msg := Render("header", "The lobby is Full!")
+			err := conn.WriteMessage(websocket.TextMessage, msg.Bytes())
+			if err != nil {
+				log.Println(err)
+			}
 			conn.Close()
-			delete(game.Players, conn)
-			return fmt.Errorf("connection close")
-		})
-
-		go func() {
-			for {
-				player.Snek.Direction = <-player.Broadcast
-
+		} else {
+			newId := getUnusedId(game)
+			player := Player{Snek: game.newSnek(fmt.Sprintf("player%v", newId)), Direction: make(chan string), Score: 0, Id: newId}
+			game.Players[conn] = &player
+			game.generateApple()
+			sneksToRender := []byte{}
+			for _, player := range game.Players {
+				snekTemp := Render("snek", player.Snek.Body)
+				sneksToRender = append(sneksToRender, snekTemp.Bytes()...)
 			}
-		}()
-
-		// read messages
-		for {
-			_, msg, err := conn.ReadMessage()
-			if err != nil {
-				deletedSnek := Render("deleteSnek", player.Snek)
+			appleToRender := []byte{}
+			for _, apple := range game.Apples {
+				appleTemp := Render("apple", apple)
+				appleToRender = append(appleToRender, appleTemp.Bytes()...)
+			}
+			broadcastTmpl(append(appleToRender, sneksToRender...), game)
+			defer conn.Close()
+			conn.SetCloseHandler(func(code int, text string) error {
+				log.Printf("connection lost with client: %s", conn.RemoteAddr())
+				conn.Close()
 				delete(game.Players, conn)
-				broadcastTmpl(deletedSnek.Bytes())
-				log.Println("Error reading message")
-				return
-			}
-			response := Res{}
-			err = json.Unmarshal([]byte(msg), &response)
-			if err != nil {
-				log.Println("Error parsing json")
-				return
+				return fmt.Errorf("connection close")
+			})
 
-			}
-			if CheckDirection(player.Snek.Direction, "vertical") && CheckDirection(response.Direction, "horizontal") {
-				player.Broadcast <- response.Direction
-			}
-			if CheckDirection(player.Snek.Direction, "horizontal") && CheckDirection(response.Direction, "vertical") {
-				player.Broadcast <- response.Direction
+			go func() {
+				for {
+					player.Snek.Direction = <-player.Direction
+
+				}
+			}()
+
+			// read messages
+			for {
+				_, msg, err := conn.ReadMessage()
+				if err != nil {
+					deletedSnek := Render("deleteSnek", player.Snek)
+					delete(game.Players, conn)
+					broadcastTmpl(deletedSnek.Bytes(), game)
+					log.Println("Error reading message")
+					return
+				}
+				response := Res{}
+				err = json.Unmarshal([]byte(msg), &response)
+				if err != nil {
+					log.Println("Error parsing json")
+					return
+
+				}
+				if CheckDirection(player.Snek.Direction, "vertical") && CheckDirection(response.Direction, "horizontal") {
+					player.Direction <- response.Direction
+				}
+				if CheckDirection(player.Snek.Direction, "horizontal") && CheckDirection(response.Direction, "vertical") {
+					player.Direction <- response.Direction
+				}
 			}
 		}
 	}
-
 }
 
-func startGame() {
-	game = new(Game)
+func startGame(game *Game) {
 	game.Level = 5
 	game.Players = make(map[*websocket.Conn]*Player)
 	game.generateBoard()
 
 }
 
-func getUnusedId() int {
+func getUnusedId(game *Game) int {
 	id := rand.IntN(4)
 	for _, player := range game.Players {
 		if id == player.Id {
-			id = getUnusedId()
+			id = getUnusedId(game)
 		}
 	}
 	return id
