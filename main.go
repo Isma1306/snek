@@ -152,10 +152,14 @@ func gameLoop(game *Game) {
 					log.Println(err)
 				}
 				conn.Close()
+				deletedSnek := Render("deleteSnek", player.Snek)
+				templateToRender = append(templateToRender, deletedSnek .Bytes()...)
 				delete(game.Players, conn)
 				appleToRemove := Render("empty", game.Apples[len(game.Apples)-1])
 				templateToRender = append(templateToRender, appleToRemove.Bytes()...)
 				game.Apples = game.Apples[:len(game.Apples)-1]
+
+
 			}
 		}
 
@@ -266,9 +270,6 @@ func handleNewPlayer(w http.ResponseWriter, r *http.Request) {
 			for {
 				_, msg, err := conn.ReadMessage()
 				if err != nil {
-					deletedSnek := Render("deleteSnek", player.Snek)
-					delete(game.Players, conn)
-					broadcastTmpl(deletedSnek.Bytes(), game)
 					log.Println("Error reading message")
 					return
 				}
