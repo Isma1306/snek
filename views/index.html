@@ -10,7 +10,9 @@
   </head>
 
   <body id="body">
-    {{template "header" . }}
+    <h1>{{.Text}}</h1>
+    {{template "lobbyList" .Games }}
+    <button hx-get="/create">Create Lobby!</button>
   </body>
 </html>
 {{end}}

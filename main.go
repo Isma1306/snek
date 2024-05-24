@@ -22,8 +22,8 @@ type Player struct {
 }
 
 var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
+	ReadBufferSize:  2048,
+	WriteBufferSize: 2048,
 }
 
 type Res struct {
@@ -34,18 +34,21 @@ type Lobby struct {
 	Game Game
 	Id   string
 }
+type Index struct {
+	Text  string
+	Games map[string]*Game
+}
+
+type Header struct {
+	Text string
+	Id   string
+}
 
 var games = make(map[string]*Game)
 
 func main() {
 
 	http.HandleFunc("/connect/", handleNewPlayer)
-
-	// http.HandleFunc("/lobby", func(w http.ResponseWriter, r *http.Request) {
-	// 	tmpl := Render("lobby", game)
-	// 	w.Write(tmpl.Bytes())
-
-	// })
 
 	http.HandleFunc("/create", func(w http.ResponseWriter, r *http.Request) {
 		id := uuid.New().String()
@@ -62,7 +65,7 @@ func main() {
 			tmpl := Render("lobby", val)
 			w.Write(tmpl.Bytes())
 		} else {
-			tmpl := Render("index", "This lobby doesn't exist!")
+			tmpl := Render("index", Index{Text: "This lobby doesn't exist!", Games: games})
 			w.Write(tmpl.Bytes())
 			w.Header().Add("HX-Redirect", "/")
 		}
@@ -83,14 +86,16 @@ func main() {
 			w.Write(tmpl.Bytes())
 			w.Header().Add("HX-Redirect", "/")
 		}
-		// TODO: remove go routines after the game finishes
 
 	})
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		tmpl := Render("index", "Welcome to Snek!")
+
+		tmpl := Render("index", Index{Text: "Welcome to Snek!", Games: games})
 		w.Write(tmpl.Bytes())
 	})
+
+	go removeEmptyGames()
 
 	http.ListenAndServe("0.0.0.0:10000", nil)
 
@@ -146,19 +151,18 @@ func gameLoop(game *Game) {
 		// TODO: fix collision, is still wonky
 		for conn, player := range game.Players {
 			if game.checkCollision(player.Snek) {
-				msg := Render("header", "You died!")
+				msg := Render("header", Header{Text: "You died!", Id: game.Id})
 				err := conn.WriteMessage(websocket.TextMessage, msg.Bytes())
 				if err != nil {
 					log.Println(err)
 				}
 				conn.Close()
 				deletedSnek := Render("deleteSnek", player.Snek)
-				templateToRender = append(templateToRender, deletedSnek .Bytes()...)
+				templateToRender = append(templateToRender, deletedSnek.Bytes()...)
 				delete(game.Players, conn)
 				appleToRemove := Render("empty", game.Apples[len(game.Apples)-1])
 				templateToRender = append(templateToRender, appleToRemove.Bytes()...)
 				game.Apples = game.Apples[:len(game.Apples)-1]
-
 
 			}
 		}
@@ -173,9 +177,11 @@ func gameLoop(game *Game) {
 						game.Apples = append(game.Apples[:index], game.Apples[index+1:]...)
 					}
 				}
-				newApple := game.generateApple()
-				newRender := Render("apple", newApple)
-				applesToUpdate = append(applesToUpdate, newRender.Bytes()...)
+				if len(game.Apples) < len(game.Players) {
+					newApple := game.generateApple()
+					newRender := Render("apple", newApple)
+					applesToUpdate = append(applesToUpdate, newRender.Bytes()...)
+				}
 			}
 			templateToRender = append(templateToRender, applesToUpdate...)
 		}
@@ -217,7 +223,7 @@ func handleNewPlayer(w http.ResponseWriter, r *http.Request) {
 	id := r.URL.Path[len("/connect/"):]
 	game, ok := games[id]
 	if !ok {
-		tmpl := Render("index", "Couldn't connect with the game!")
+		tmpl := Render("index", Index{Text: "Couldn't connect with the game!", Games: games})
 		w.Write(tmpl.Bytes())
 	} else {
 
@@ -228,8 +234,8 @@ func handleNewPlayer(w http.ResponseWriter, r *http.Request) {
 		if len(game.Players) == 0 {
 			startGame(game)
 		}
-		if len(game.Players) > 3 {
-			msg := Render("header", "The lobby is Full!")
+		if len(game.Players) >= game.MaxPlayers {
+			msg := Render("header", Header{Text: "The lobby is Full!", Id: game.Id})
 			err := conn.WriteMessage(websocket.TextMessage, msg.Bytes())
 			if err != nil {
 				log.Println(err)
@@ -239,16 +245,19 @@ func handleNewPlayer(w http.ResponseWriter, r *http.Request) {
 			newId := getUnusedId(game)
 			player := Player{Snek: game.newSnek(fmt.Sprintf("player%v", newId)), Direction: make(chan string), Score: 0, Id: newId}
 			game.Players[conn] = &player
-			game.generateApple()
 			sneksToRender := []byte{}
+			appleToRender := []byte{}
+			if len(game.Apples) < len(game.Players) {
+				game.generateApple()
+				for _, apple := range game.Apples {
+					appleTemp := Render("apple", apple)
+					appleToRender = append(appleToRender, appleTemp.Bytes()...)
+				}
+			}
+
 			for _, player := range game.Players {
 				snekTemp := Render("snek", player.Snek.Body)
 				sneksToRender = append(sneksToRender, snekTemp.Bytes()...)
-			}
-			appleToRender := []byte{}
-			for _, apple := range game.Apples {
-				appleTemp := Render("apple", apple)
-				appleToRender = append(appleToRender, appleTemp.Bytes()...)
 			}
 			broadcastTmpl(append(appleToRender, sneksToRender...), game)
 			defer conn.Close()
@@ -292,6 +301,7 @@ func handleNewPlayer(w http.ResponseWriter, r *http.Request) {
 }
 
 func startGame(game *Game) {
+	game.MaxPlayers = 4
 	game.Level = 5
 	game.Players = make(map[*websocket.Conn]*Player)
 	game.generateBoard()
@@ -299,12 +309,25 @@ func startGame(game *Game) {
 }
 
 func getUnusedId(game *Game) int {
-	id := rand.IntN(4)
+	id := rand.IntN(game.MaxPlayers)
 	for _, player := range game.Players {
 		if id == player.Id {
 			id = getUnusedId(game)
 		}
 	}
 	return id
+
+}
+
+func removeEmptyGames() {
+	for {
+		time.Sleep(60 * time.Second)
+		for _, game := range games {
+			if len(game.Players) == 0 {
+				log.Printf("Remove game %s because it's empty", game.Id)
+				delete(games, game.Id)
+			}
+		}
+	}
 
 }

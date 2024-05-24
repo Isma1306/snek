@@ -10,8 +10,10 @@
 <!--  -->
 {{block "header" . }}
 <div hx-swap-oob="innerHTML:#body">
-  <h1>{{.}}</h1>
-  <button  hx-get='./create'>Create Lobby!</button>
+  <h1>{{.Text}}</h1>
+  <a href="/">Return to main menu</a>
+  <a href="/game/{{- .Id -}}">Return to the Game</a>
+  <button hx-get="/create">Create Lobby!</button>
 </div>
 {{ end}}
 <!--  -->

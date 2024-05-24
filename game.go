@@ -8,6 +8,7 @@ import (
 )
 
 type Game struct {
+	MaxPlayers int
 	Id      string
 	Time    int
 	Board   Board

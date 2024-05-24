@@ -75,6 +75,7 @@
       </div>
     </div>
     <button class="btn" hx-get="/start/{{- .Id -}}">Start the game!</button>
+    <a href="/">Return to main menu</a>
     <div hx-ext="ws" ws-connect="/connect/{{- .Id -}}">
       <form style="visibility: hidden" id="form" ws-send>
         <input id="direction" name="direction" value="up" />
