@@ -8,6 +8,7 @@ import (
 	"log"
 	"math/rand/v2"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,6 +20,7 @@ type Player struct {
 	Snek      Snek
 	Direction chan string
 	Score     int
+	Mu        *sync.Mutex
 }
 
 var upgrader = websocket.Upgrader{
@@ -54,6 +56,8 @@ func main() {
 		id := uuid.New().String()
 		games[id] = new(Game)
 		games[id].Id = id
+		games[id].PlayersMu = new(sync.Mutex)
+		games[id].GameMu = new(sync.Mutex)
 		w.Header().Add("HX-Redirect", "/game/"+id)
 
 	})
@@ -97,15 +101,20 @@ func main() {
 
 	go removeEmptyGames()
 
-	http.ListenAndServe("0.0.0.0:10000", nil)
-
+	log.Printf("server ready listening @ %s", "0.0.0.0:10000")
+	err := http.ListenAndServe("0.0.0.0:10000", nil)
+	if err != nil {
+		log.Fatalf("Server died: %s", err)
+	}
 }
 
 func timeLoop(game *Game) {
 	for {
 		if len(game.Players) == 0 {
 			game.Time = 0
+			game.GameMu.Lock()
 			delete(games, game.Id)
+			game.GameMu.Unlock()
 			log.Printf("game %s was deleted!", game.Id)
 			break
 		}
@@ -150,8 +159,11 @@ func gameLoop(game *Game) {
 		// check if a player hit something after all the snek moved
 		// TODO: fix collision, is still wonky
 		for conn, player := range game.Players {
+
 			if game.checkCollision(player.Snek) {
 				msg := Render("header", Header{Text: "You died!", Id: game.Id})
+				player.Mu.Lock()
+				defer player.Mu.Unlock()
 				err := conn.WriteMessage(websocket.TextMessage, msg.Bytes())
 				if err != nil {
 					log.Println(err)
@@ -159,7 +171,9 @@ func gameLoop(game *Game) {
 				conn.Close()
 				deletedSnek := Render("deleteSnek", player.Snek)
 				templateToRender = append(templateToRender, deletedSnek.Bytes()...)
+				game.PlayersMu.Lock()
 				delete(game.Players, conn)
+				game.PlayersMu.Unlock()
 				appleToRemove := Render("empty", game.Apples[len(game.Apples)-1])
 				templateToRender = append(templateToRender, appleToRemove.Bytes()...)
 				game.Apples = game.Apples[:len(game.Apples)-1]
@@ -209,7 +223,9 @@ func CheckDirection(item, direction string) bool {
 }
 
 func broadcastTmpl(tmpl []byte, game *Game) {
-	for client := range game.Players {
+	for client, player := range game.Players {
+		player.Mu.Lock()
+		defer player.Mu.Unlock()
 		err := client.WriteMessage(websocket.TextMessage, tmpl)
 		if err != nil {
 			log.Println(err)
@@ -243,8 +259,10 @@ func handleNewPlayer(w http.ResponseWriter, r *http.Request) {
 			conn.Close()
 		} else {
 			newId := getUnusedId(game)
-			player := Player{Snek: game.newSnek(fmt.Sprintf("player%v", newId)), Direction: make(chan string), Score: 0, Id: newId}
+			player := Player{Snek: game.newSnek(fmt.Sprintf("player%v", newId)), Direction: make(chan string), Score: 0, Id: newId, Mu: &sync.Mutex{}}
+			game.PlayersMu.Lock()
 			game.Players[conn] = &player
+			game.PlayersMu.Unlock()
 			sneksToRender := []byte{}
 			appleToRender := []byte{}
 			if len(game.Apples) < len(game.Players) {
@@ -264,22 +282,26 @@ func handleNewPlayer(w http.ResponseWriter, r *http.Request) {
 			conn.SetCloseHandler(func(code int, text string) error {
 				log.Printf("connection lost with client: %s", conn.RemoteAddr())
 				conn.Close()
+				game.PlayersMu.Lock()
 				delete(game.Players, conn)
+				game.PlayersMu.Unlock()
 				return fmt.Errorf("connection close")
 			})
 
 			go func() {
 				for {
 					player.Snek.Direction = <-player.Direction
-
 				}
 			}()
 
 			// read messages
 			for {
-				_, msg, err := conn.ReadMessage()
+				msgType, msg, err := conn.ReadMessage()
 				if err != nil {
-					log.Println("Error reading message")
+					if msgType == -1 {
+						return
+					}
+					log.Printf("Error reading message: %s", err)
 					return
 				}
 				response := Res{}
@@ -325,7 +347,9 @@ func removeEmptyGames() {
 		for _, game := range games {
 			if len(game.Players) == 0 {
 				log.Printf("Remove game %s because it's empty", game.Id)
+				game.GameMu.Lock()
 				delete(games, game.Id)
+				game.GameMu.Unlock()
 			}
 		}
 	}

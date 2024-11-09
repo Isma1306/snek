@@ -3,20 +3,23 @@ package main
 import (
 	"errors"
 	"math/rand/v2"
+	"sync"
 
 	"github.com/gorilla/websocket"
 )
 
 type Game struct {
 	MaxPlayers int
-	Id      string
-	Time    int
-	Board   Board
-	Snek    Snek
-	Apples  []Unit
-	Level   int
-	Score   int
-	Players map[*websocket.Conn]*Player
+	Id         string
+	Time       int
+	Board      Board
+	Snek       Snek
+	Apples     []Unit
+	Level      int
+	Score      int
+	GameMu     *sync.Mutex
+	PlayersMu  *sync.Mutex
+	Players    map[*websocket.Conn]*Player
 }
 
 type Board [20][20]Square
