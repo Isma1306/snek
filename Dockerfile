@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # Build the application from source
-FROM golang:1.22.1 AS build-stage
+FROM golang:latest AS build-stage
 
 WORKDIR /app
 
